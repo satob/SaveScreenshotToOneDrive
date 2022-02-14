@@ -6,6 +6,9 @@ $ResourceId = "https://xxxxx-my.sharepoint.com/"
 # You have to save when you register the app
 $AppKey = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
+# Give "Files.ReadWrite.All" permission to this application 
+
+
 # まず認証する
 $Authentication = Get-ODAuthentication -ClientId $ClientId -AppKey $AppKey -RedirectURI $RedirectURI -ResourceId $ResourceId
 
