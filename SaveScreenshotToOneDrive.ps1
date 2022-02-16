@@ -9,6 +9,7 @@ $AppKey = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 # Give "Files.ReadWrite.All" permission to this application 
 
 
+# functions from https://github.com/MarcelMeurer/PowerShellGallery-OneDrive
 function Get-ODAuthentication
 {
 	<#
