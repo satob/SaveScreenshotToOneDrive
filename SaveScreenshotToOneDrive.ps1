@@ -714,6 +714,14 @@ function timer_function($notify){
   try {
     # It fails when the screen is locked
     $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.size);
+
+    # 文字用ブラシ（アルファ値100）
+    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(200, 128, 128, 128))
+    # フォントの指定
+    $font = New-Object System.Drawing.Font("Arial Black", 36) 
+    # 左50px、上50pxに描画
+    $graphics.DrawString((Get-Date).ToString("yyyy-MM-dd HH:mm:ss"), $font, $brush, 16, 16)
+
     $bmp.Save($TmpFilePath, $JpegEncoder, $JpegEncoderParameters);
     Add-ODItem -AccessToken $Authentication.access_token -ResourceId $ResourceId -LocalFile $TmpFilePath -Path "/Screenshot/${Year}/${Month}/${Day}"
   } catch {
@@ -802,6 +810,12 @@ function main(){
   $mutex.Close()
 }
 
+
+# ネットワークが有効になるまで待つ
+$PingHosts = @('login.live.com', 'login.microsoftonline.com');
+while (-not ($PingHosts | Where-Object { (Test-NetConnection -ComputerName $_ -Port 443).TcpTestSucceeded })) {
+  Start-Sleep -Seconds 5
+}
 
 # まず認証する
 $Authentication = Get-ODAuthentication -ClientId $ClientId -AppKey $AppKey -RedirectURI $RedirectURI -ResourceId $ResourceId
