@@ -813,8 +813,15 @@ function main(){
 
 # ネットワークが有効になるまで待つ
 $PingHosts = @('login.live.com', 'login.microsoftonline.com');
-while (-not ($PingHosts | Where-Object { (Test-NetConnection -ComputerName $_ -Port 443).TcpTestSucceeded })) {
-  Start-Sleep -Seconds 5
+while ($true) {
+  $PingHosts | ForEach-Object {
+    $AuthFQDN = $_;
+    $AuthIP = (Resolve-DnsName $AuthFQDN | Where-Object { $_.QueryType -eq "A" } | Select-Object -First 1).IPAddress;
+    if ((Test-NetConnection -ComputerName $AuthIP -Port 443).TcpTestSucceeded) {
+      break;
+    }
+    Start-Sleep -Seconds 10
+  }
 }
 
 # まず認証する
