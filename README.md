@@ -8,6 +8,8 @@ Save desktop screenshots to OneDrive periodically while the user logs in.
 - Draw captured date/time as watermark (for OneDrive browser view)
 - Screenshots are stored in original size, low quality in default
 - Stays in the task tray
+- No extra software needed
+- Runnable from task scheduler, without store `.ps1` file as local file
 
 # How to Use
 
