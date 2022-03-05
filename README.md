@@ -1,6 +1,13 @@
 # Save Screenshot To OneDrive
 
-Save screenshots periodically while the user is logged in.
+Save desktop screenshots to OneDrive periodically while the user logs in.
+
+- Tested on organization account (not tested on personal account)
+- Screenshots are stored as `/Screenshot/YY/MM/DD/hhmm.jpg` 
+- Support multi-screen
+- Draw captured date/time as watermark (for OneDrive browser view)
+- Screenshots are stored in original size, low quality in default
+- Stays in the task tray
 
 # How to Use
 
@@ -14,6 +21,7 @@ Save screenshots periodically while the user is logged in.
   - Set the FQDN of OneDrive to `$ResourceId`.
   - Set the client secret to `$AppKey`.
 - Run `SaveScreenshotToOneDrive.ps1`.
+- Right-click the task tray icon and select `Exit` to stop capture.
 
 # Run from task scheduler
 
