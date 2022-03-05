@@ -2,13 +2,11 @@
 
 Save screenshots periodically while the user is logged in.
 
-This script uses some part of the OneDrive PowerShell Module https://github.com/MarcelMeurer/PowerShellGallery-OneDrive (OneDrive.psm1).
-
 # How to Use
 
 - Access to https://portal.azure.com/#blade/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/RegisteredApps and register a new application.
   - Set any URI to the redirect URI (it doesn't use in the process). The platform should be `Web`.
-  - Add `Files.ReadWrite.All` privilege to the application.
+  - Add `Files.ReadWrite.All` and `Files.Read.All` privilege to the application.
   - Create a new client secret.
 - Edit `SaveScreenshotToOneDrive.ps1` and set the parameters to access to OneDrive API.
   - Set `Application (Client) ID` to `$ClientId`.
