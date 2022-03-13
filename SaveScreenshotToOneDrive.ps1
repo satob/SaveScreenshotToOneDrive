@@ -93,7 +93,11 @@ function Upload-OneDrive {
   )
   $RootURI = "https://graph.microsoft.com/v1.0/me/drive/root"
   $Header = @{ Authorization = "Bearer " + $AccessToken; Host = "graph.microsoft.com" }
-  $Response = Invoke-WebRequest -Method PUT -Uri ($RootURI + ":" + $Path + ":/content") -InFile $LocalFile -Header $Header -ContentType $ContentType -UseBasicParsing -ErrorAction Stop
+  try {
+    $Response = Invoke-WebRequest -Method PUT -Uri ($RootURI + ":" + $Path + ":/content") -InFile $LocalFile -Header $Header -ContentType $ContentType -UseBasicParsing -ErrorAction Stop
+  } catch {
+    [void][System.Windows.Forms.MessageBox]::Show($error,"エラー","OK","Information")
+  }
   return ($Response.Content | ConvertFrom-Json)
 }
 
@@ -107,8 +111,7 @@ $MUTEX_NAME = "Global\mutex" # 多重起動チェック用
 
 function timer_function($notify){
   # トークンのリフレッシュ
-  $LastAuthentication = $Authentication
-  Refresh-Token -ClientId $ClientId -RedirectURI $RedirectURI -AppKey $AppKey -RefreshToken $LastAuthentication.refresh_token
+  $Authentication = Refresh-Token -ClientId $ClientId -RedirectURI $RedirectURI -AppKey $AppKey -RefreshToken $Authentication.refresh_token
 
   $Year  = "{0:0000}" -F (Get-Date).Year
   $Month = "{0:00}" -F (Get-Date).Month
@@ -246,17 +249,17 @@ function main() {
 
 
 # ネットワークが有効になるまで待つ
-$PingHosts = @('login.live.com', 'login.microsoftonline.com');
-while ($true) {
-  $PingHosts | ForEach-Object {
-    $AuthFQDN = $_;
-    $AuthIP = (Resolve-DnsName $AuthFQDN | Where-Object { $_.QueryType -eq "A" } | Select-Object -First 1).IPAddress;
-    if ((Test-NetConnection -ComputerName $AuthIP -Port 443).TcpTestSucceeded) {
-      break;
-    }
-    Start-Sleep -Seconds 10
-  }
-}
+#$PingHosts = @('login.live.com', 'login.microsoftonline.com');
+#while ($true) {
+#  $PingHosts | ForEach-Object {
+#    $AuthFQDN = $_;
+#    $AuthIP = (Resolve-DnsName $AuthFQDN | Where-Object { $_.QueryType -eq "A" } | Select-Object -First 1).IPAddress;
+#    if ((Test-NetConnection -ComputerName $AuthIP -Port 443).TcpTestSucceeded) {
+#      break;
+#    }
+#    Start-Sleep -Seconds 10
+#  }
+#}
 
 # まず認証する
 $State = (Get-Random)
