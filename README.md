@@ -14,7 +14,7 @@ Save desktop screenshots to OneDrive periodically while the user logs in.
 # How to Use
 
 - Access to https://portal.azure.com/#blade/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/RegisteredApps and register a new application.
-  - Set any URI to the redirect URI (it doesn't use in the process). The platform should be `Web`.
+  - Set any URI to the redirect URI (it doesn't use in the process). The platform should be `Mobile and desktop applications`.
   - Add `Files.ReadWrite.All` and `Files.Read.All` privilege to the application.
   - Create a new client secret.
 - Edit `SaveScreenshotToOneDrive.ps1` and set the parameters to access to OneDrive API.

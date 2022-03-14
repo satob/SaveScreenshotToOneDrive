@@ -57,9 +57,8 @@ function Authenticate-OneDrive {
     $Authentication | Add-Member Noteproperty $Element.split("=")[0] $Element.split("=")[1]
   }
   if ($Authentication.code) {
-    $ClientSecret = [uri]::EscapeDataString($AppKey)
     $Code = $Authentication.code
-    $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&client_secret=${ClientSecret}&code=${Code}&grant_type=authorization_code&scope=${Scope}"
+    $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&code=${Code}&grant_type=authorization_code&scope=${Scope}"
     $WebRequest = Invoke-WebRequest -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body -UseBasicParsing
     return $WebRequest.Content | ConvertFrom-Json
   } else {
@@ -76,8 +75,7 @@ function Refresh-Token {
     [string]$AppKey="",
     [string]$RefreshToken=""
   )
-  $ClientSecret = [uri]::EscapeDataString($AppKey)
-  $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&client_secret=${ClientSecret}&refresh_token=${RefreshToken}&grant_type=refresh_token"
+  $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&refresh_token=${RefreshToken}&grant_type=refresh_token"
   $WebRequest = Invoke-WebRequest -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body -UseBasicParsing
   return $webRequest.Content | ConvertFrom-Json
 }
