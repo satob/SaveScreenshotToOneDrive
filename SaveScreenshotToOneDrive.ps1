@@ -9,6 +9,51 @@ $AppKey = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 # Give "Files.ReadWrite.All" and "Files.Read.All" permission to this application 
 
 
+[Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
+[Reflection.Assembly]::LoadWithPartialName("System.Drawing") | Out-Null
+[Reflection.Assembly]::LoadWithPartialName("System.Web") | Out-Null
+
+
+function Invoke-WebRequestThruProxy {
+  PARAM(
+    [Parameter(Mandatory=$True)]  $Method,
+    [Parameter(Mandatory=$True)]  [uri]$Uri,
+    [Parameter(Mandatory=$True)]  [string]$ContentType,
+    [Parameter(Mandatory=$False)] $Body = $null,
+    [Parameter(Mandatory=$False)] $InFile = $null,
+    [Parameter(Mandatory=$False)] $Header = $null
+  )
+
+  $WithProxy = $false
+  $BaseUri = $Uri.Scheme + "://" + $Uri.Host
+  $ProxyUri = [System.Net.WebRequest]::GetSystemWebProxy().GetProxy($BaseUri)
+  if (([uri]$BaseUri).AbsoluteUri -ne $ProxyUri.AbsoluteUri) {
+    $WithProxy = $true
+  }
+
+  try {
+    if ($Body -ne $null) {
+      if ($WithProxy) {
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing -ErrorAction Stop -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
+      } else {
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing -ErrorAction Stop
+      }
+    } elseif ($InFile -ne $null) {
+      if ($WithProxy) {
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing -ErrorAction Stop -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
+      } else {
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing -ErrorAction Stop
+      }
+    }
+    return ($Response.Content | ConvertFrom-Json)
+  } catch {
+    $Parameters = ($PSBoundParameters.Keys | ForEach-Object { $_ + "=" + $PSBoundParameters.Item($_) }) -join "`n"
+    [void][System.Windows.Forms.MessageBox]::Show($error + "`n" + $Parameters, "Error", "OK", "Information")
+    $error.clear()
+  }
+}
+
+
 function Authenticate-OneDrive {
   PARAM(
     [Parameter(Mandatory=$True)]
@@ -21,10 +66,6 @@ function Authenticate-OneDrive {
   )
 
   $AuthorizeURI = "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize?client_id=${ClientId}&response_type=code&redirect_uri=${RedirectURI}&response_mode=query&scope=${Scope}&state=${State}"
-
-  [Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | out-null
-  [Reflection.Assembly]::LoadWithPartialName("System.Drawing") | out-null
-  [Reflection.Assembly]::LoadWithPartialName("System.Web") | out-null
 
   $Form = New-Object Windows.Forms.Form
   $Form.text = "Authenticate to OneDrive"
@@ -50,7 +91,7 @@ function Authenticate-OneDrive {
   $Form.Controls.Add($Web)
   $Form.showdialog() | Out-Null
 
-  $ReturnURI=($Web.Url).ToString().Replace("#","&")
+  $ReturnURI = ($Web.Url).ToString().Replace("#","&")
 
   $Authentication = New-Object PSObject
   ForEach ($Element in $ReturnURI.Split("?")[1].Split("&")) {
@@ -59,8 +100,7 @@ function Authenticate-OneDrive {
   if ($Authentication.code) {
     $Code = $Authentication.code
     $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&code=${Code}&grant_type=authorization_code&scope=${Scope}"
-    $WebRequest = Invoke-WebRequest -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body -UseBasicParsing
-    return $WebRequest.Content | ConvertFrom-Json
+    return Invoke-WebRequestThruProxy -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body
   } else {
     Write-Error ("Cannot get authentication code. Error: " + $ReturnURI) -ErrorAction Stop
   }
@@ -76,8 +116,7 @@ function Refresh-Token {
     [string]$RefreshToken=""
   )
   $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&refresh_token=${RefreshToken}&grant_type=refresh_token"
-  $WebRequest = Invoke-WebRequest -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body -UseBasicParsing
-  return $webRequest.Content | ConvertFrom-Json
+  return Invoke-WebRequestThruProxy -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body
 }
 
 
@@ -91,12 +130,7 @@ function Upload-OneDrive {
   )
   $RootURI = "https://graph.microsoft.com/v1.0/me/drive/root"
   $Header = @{ Authorization = "Bearer " + $AccessToken; Host = "graph.microsoft.com" }
-  try {
-    $Response = Invoke-WebRequest -Method PUT -Uri ($RootURI + ":" + $Path + ":/content") -InFile $LocalFile -Header $Header -ContentType $ContentType -UseBasicParsing -ErrorAction Stop
-  } catch {
-    [void][System.Windows.Forms.MessageBox]::Show($error,"エラー","OK","Information")
-  }
-  return ($Response.Content | ConvertFrom-Json)
+  return Invoke-WebRequestThruProxy -Method PUT -Uri ($RootURI + ":" + $Path + ":/content") -InFile $LocalFile -Header $Header -ContentType $ContentType
 }
 
 
@@ -107,7 +141,7 @@ Add-Type -AssemblyName System.Windows.Forms
 $TIMER_INTERVAL = 300 * 1000 # timer_function実行間隔(ミリ秒)
 $MUTEX_NAME = "Global\mutex" # 多重起動チェック用
 
-function timer_function($notify){
+function timer_function($notify) {
   # トークンのリフレッシュ
   $Authentication = Refresh-Token -ClientId $ClientId -RedirectURI $RedirectURI -AppKey $AppKey -RefreshToken $Authentication.refresh_token
 
