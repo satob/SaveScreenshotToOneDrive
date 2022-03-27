@@ -34,21 +34,24 @@ function Invoke-WebRequestThruProxy {
   try {
     if ($Body -ne $null) {
       if ($WithProxy) {
-        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing -ErrorAction Stop -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
       } else {
-        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing -ErrorAction Stop
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing
       }
     } elseif ($InFile -ne $null) {
       if ($WithProxy) {
-        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing -ErrorAction Stop -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
       } else {
-        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing -ErrorAction Stop
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing
       }
     }
     return ($Response.Content | ConvertFrom-Json)
   } catch {
+    $e = $_.Exception
+    $Line = $_.InvocationInfo.ScriptLineNumber
+    $Message = $e.Message
     $Parameters = ($PSBoundParameters.Keys | ForEach-Object { $_ + "=" + $PSBoundParameters.Item($_) }) -join "`n"
-    [void][System.Windows.Forms.MessageBox]::Show($error + "`n" + $Parameters, "Error", "OK", "Information")
+    [void][System.Windows.Forms.MessageBox]::Show("At Line $Line :1" + "`n" + $Message + "`n" + $Parameters, "Error", "OK", "Information")
     $error.clear()
   }
 }
@@ -211,7 +214,7 @@ function main() {
     # タスクバー非表示
     $windowcode = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);'
     $asyncwindow = Add-Type -MemberDefinition $windowcode -name Win32ShowWindowAsync -namespace Win32Functions -PassThru
-    $null = $asyncwindow::ShowWindowAsync((Get-Process -PID $pid).MainWindowHandle, 0)
+    # $null = $asyncwindow::ShowWindowAsync((Get-Process -PID $pid).MainWindowHandle, 0)
 
     $application_context = New-Object System.Windows.Forms.ApplicationContext
     $timer = New-Object Windows.Forms.Timer
@@ -294,8 +297,13 @@ function main() {
 #}
 
 # まず認証する
-$State = (Get-Random)
-$Authentication = Authenticate-OneDrive -ClientId $ClientId -AppKey $AppKey -RedirectURI $RedirectURI -ResourceId $ResourceId
+try {
+  $State = (Get-Random)
+  $Authentication = Authenticate-OneDrive -ClientId $ClientId -AppKey $AppKey -RedirectURI $RedirectURI -ResourceId $ResourceId
+} catch {
+  [void][System.Windows.Forms.MessageBox]::Show($error, "Error", "OK", "Information")
+  $error
+}
 
 # スクリーンショットを取る準備
 [Reflection.Assembly]::LoadWithPartialName("System.Drawing")
