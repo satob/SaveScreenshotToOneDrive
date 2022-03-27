@@ -9,19 +9,18 @@ $AppKey = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 # Give "Files.ReadWrite.All" and "Files.Read.All" permission to this application 
 
 
-[Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
-[Reflection.Assembly]::LoadWithPartialName("System.Drawing") | Out-Null
-[Reflection.Assembly]::LoadWithPartialName("System.Web") | Out-Null
-
+[void] [Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+[void] [Reflection.Assembly]::LoadWithPartialName("System.Drawing")
+[void] [Reflection.Assembly]::LoadWithPartialName("System.Web")
 
 function Invoke-WebRequestThruProxy {
   PARAM(
-    [Parameter(Mandatory=$True)]  $Method,
-    [Parameter(Mandatory=$True)]  [uri]$Uri,
-    [Parameter(Mandatory=$True)]  [string]$ContentType,
-    [Parameter(Mandatory=$False)] $Body = $null,
-    [Parameter(Mandatory=$False)] $InFile = $null,
-    [Parameter(Mandatory=$False)] $Header = $null
+    [Parameter(Mandatory = $True)]  $Method,
+    [Parameter(Mandatory = $True)]  [uri]$Uri,
+    [Parameter(Mandatory = $True)]  [string]$ContentType,
+    [Parameter(Mandatory = $False)] $Body = $null,
+    [Parameter(Mandatory = $False)] $InFile = $null,
+    [Parameter(Mandatory = $False)] $Header = $null
   )
 
   $WithProxy = $false
@@ -32,26 +31,30 @@ function Invoke-WebRequestThruProxy {
   }
 
   try {
-    if ($Body -ne $null) {
+    if ($null -ne $Body) {
       if ($WithProxy) {
         $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
-      } else {
+      }
+      else {
         $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing
       }
-    } elseif ($InFile -ne $null) {
+    }
+    elseif ($null -ne $InFile) {
       if ($WithProxy) {
         $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
-      } else {
+      }
+      else {
         $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing
       }
     }
     return ($Response.Content | ConvertFrom-Json)
-  } catch {
+  }
+  catch {
     $e = $_.Exception
-    $Line = $_.InvocationInfo.ScriptLineNumber
+    $Line = $_.InvocationInfo.PositionMessage
     $Message = $e.Message
     $Parameters = ($PSBoundParameters.Keys | ForEach-Object { $_ + "=" + $PSBoundParameters.Item($_) }) -join "`n"
-    [void][System.Windows.Forms.MessageBox]::Show("At Line $Line :1" + "`n" + $Message + "`n" + $Parameters, "Error", "OK", "Information")
+    [void][System.Windows.Forms.MessageBox]::Show("At $Line" + "`n" + $Message + "`n" + $Parameters, "Error", "OK", "Information")
     $error.clear()
   }
 }
@@ -59,12 +62,12 @@ function Invoke-WebRequestThruProxy {
 
 function Authenticate-OneDrive {
   PARAM(
-    [Parameter(Mandatory=$True)]
-    [string]$ClientId = "unknown",
+    [Parameter(Mandatory = $True)]
+    [string]$ClientId,
     [string]$Scope = "offline_access%20User.Read%20Files.ReadWrite.All%20Files.Read.All",
-    [string]$RedirectURI ="https://login.live.com/oauth20_desktop.srf",
-    [string]$AppKey="",
-    [string]$ResourceId="",
+    [string]$RedirectURI = "https://login.live.com/oauth20_desktop.srf",
+    [string]$AppKey = "",
+    [string]$ResourceId = "",
     [string]$State
   )
 
@@ -72,7 +75,7 @@ function Authenticate-OneDrive {
 
   $Form = New-Object Windows.Forms.Form
   $Form.text = "Authenticate to OneDrive"
-  $Form.size = New-Object Drawing.size @(840,525)
+  $Form.size = New-Object Drawing.size @(840, 525)
   $Form.Height = 840
   $Form.Width = 525
   $Web = New-object System.Windows.Forms.WebBrowser
@@ -82,7 +85,7 @@ function Authenticate-OneDrive {
   $Web.Location = "0, 0"
   $Web.navigate($AuthorizeURI)
 
-  $DocComplete  = {
+  $DocComplete = {
     if ($Web.Url.AbsoluteUri -match "access_token=|error|code=|logout") {
       $Form.Close()
     }
@@ -94,7 +97,7 @@ function Authenticate-OneDrive {
   $Form.Controls.Add($Web)
   $Form.showdialog() | Out-Null
 
-  $ReturnURI = ($Web.Url).ToString().Replace("#","&")
+  $ReturnURI = ($Web.Url).ToString().Replace("#", "&")
 
   $Authentication = New-Object PSObject
   ForEach ($Element in $ReturnURI.Split("?")[1].Split("&")) {
@@ -104,7 +107,8 @@ function Authenticate-OneDrive {
     $Code = $Authentication.code
     $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&code=${Code}&grant_type=authorization_code&scope=${Scope}"
     return Invoke-WebRequestThruProxy -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body
-  } else {
+  }
+  else {
     Write-Error ("Cannot get authentication code. Error: " + $ReturnURI) -ErrorAction Stop
   }
 }
@@ -112,11 +116,11 @@ function Authenticate-OneDrive {
 
 function Refresh-Token {
   PARAM(
-    [Parameter(Mandatory=$True)]
-    [string]$ClientId = "unknown",
-    [string]$RedirectURI ="https://login.live.com/oauth20_desktop.srf",
-    [string]$AppKey="",
-    [string]$RefreshToken=""
+    [Parameter(Mandatory = $True)]
+    [string]$ClientId,
+    [string]$RedirectURI = "https://login.live.com/oauth20_desktop.srf",
+    [string]$AppKey = "",
+    [string]$RefreshToken = ""
   )
   $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&refresh_token=${RefreshToken}&grant_type=refresh_token"
   return Invoke-WebRequestThruProxy -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body
@@ -125,11 +129,11 @@ function Refresh-Token {
 
 function Upload-OneDrive {
   PARAM(
-    [Parameter(Mandatory=$True)]
+    [Parameter(Mandatory = $True)]
     [string]$AccessToken,
-    [string]$Path="/",
-    [string]$LocalFile="",
-    [string]$ContentType="application/octet-stream"
+    [string]$Path = "/",
+    [string]$LocalFile = "",
+    [string]$ContentType = "application/octet-stream"
   )
   $RootURI = "https://graph.microsoft.com/v1.0/me/drive/root"
   $Header = @{ Authorization = "Bearer " + $AccessToken; Host = "graph.microsoft.com" }
@@ -146,11 +150,15 @@ $MUTEX_NAME = "Global\mutex" # 多重起動チェック用
 
 function timer_function($notify) {
   # トークンのリフレッシュ
+  $Authentication_Old = $Authentication
   $Authentication = Refresh-Token -ClientId $ClientId -RedirectURI $RedirectURI -AppKey $AppKey -RefreshToken $Authentication.refresh_token
+  if ($null -eq $Authentication) {
+    $Authentication = $Authentication_Old
+  }
 
-  $Year  = "{0:0000}" -F (Get-Date).Year
+  $Year = "{0:0000}" -F (Get-Date).Year
   $Month = "{0:00}" -F (Get-Date).Month
-  $Day   = "{0:00}" -F (Get-Date).Day
+  $Day = "{0:00}" -F (Get-Date).Day
   $FileName = (Get-Date).ToString('HHmm') + ".jpg"
   $TmpFilePath = Join-Path $env:TEMP $FileName
   $JpegEncoder = ([System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.FormatID -eq [System.Drawing.Imaging.ImageFormat]::Jpeg.Guid })
@@ -164,17 +172,16 @@ function timer_function($notify) {
 
   $screen = [System.Windows.Forms.Screen]::AllScreens;
 
-  foreach ($item in $screen)
-  {
-    if($workingAreaX -gt $item.WorkingArea.X) {
+  foreach ($item in $screen) {
+    if ($workingAreaX -gt $item.WorkingArea.X) {
       $workingAreaX = $item.WorkingArea.X;
     }
-    if($workingAreaY -gt $item.WorkingArea.Y) {
+    if ($workingAreaY -gt $item.WorkingArea.Y) {
       $workingAreaY = $item.WorkingArea.Y;
     }
     $width = $width + $item.Bounds.Width;
 
-    if($item.Bounds.Height -gt $height) {
+    if ($item.Bounds.Height -gt $height) {
       $height = $item.Bounds.Height;
     }
   }
@@ -196,7 +203,8 @@ function timer_function($notify) {
 
     $bmp.Save($TmpFilePath, $JpegEncoder, $JpegEncoderParameters);
     Upload-OneDrive -AccessToken $Authentication.access_token -Path "/Screenshot/${Year}/${Month}/${Day}/${FileName}" -LocalFile $TmpFilePath -ContentType "image/jpeg"
-  } catch {
+  }
+  catch {
     # DO NOTHING
   }
 
@@ -210,10 +218,10 @@ function timer_function($notify) {
 function main() {
   $mutex = New-Object System.Threading.Mutex($false, $MUTEX_NAME)
   # 多重起動チェック
-  if ($mutex.WaitOne(0, $false)){
+  if ($mutex.WaitOne(0, $false)) {
     # タスクバー非表示
-    $windowcode = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);'
-    $asyncwindow = Add-Type -MemberDefinition $windowcode -name Win32ShowWindowAsync -namespace Win32Functions -PassThru
+    # $windowcode = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);'
+    # $asyncwindow = Add-Type -MemberDefinition $windowcode -name Win32ShowWindowAsync -namespace Win32Functions -PassThru
     # $null = $asyncwindow::ShowWindowAsync((Get-Process -PID $pid).MainWindowHandle, 0)
 
     $application_context = New-Object System.Windows.Forms.ApplicationContext
@@ -239,13 +247,13 @@ function main() {
 
     # アイコンクリック時のイベント
     $notify_icon.add_Click({
-      if ($_.Button -eq [Windows.Forms.MouseButtons]::Left) {
-        # タイマーで実装されているイベントを即時実行する
-        $timer.Stop()
-        $timer.Interval = 1
-        $timer.Start()
-      }
-    })
+        if ($_.Button -eq [Windows.Forms.MouseButtons]::Left) {
+          # タイマーで実装されているイベントを即時実行する
+          $timer.Stop()
+          $timer.Interval = 1
+          $timer.Start()
+        }
+      })
 
     # メニュー
     $menu_item_exit = New-Object System.Windows.Forms.MenuItem
@@ -255,20 +263,20 @@ function main() {
 
     # Exitメニュークリック時のイベント
     $menu_item_exit.add_Click({
-      $application_context.ExitThread()
-    })
+        $application_context.ExitThread()
+      })
 
     # タイマーイベント.
     $timer.Enabled = $true
     $timer.Add_Tick({
-      $timer.Stop()
+        $timer.Stop()
 
-      timer_function($notify_icon)
+        timer_function($notify_icon)
 
-      # インターバルを再設定してタイマー再開
-      $timer.Interval = $TIMER_INTERVAL
-      $timer.Start()
-    })
+        # インターバルを再設定してタイマー再開
+        $timer.Interval = $TIMER_INTERVAL
+        $timer.Start()
+      })
 
     $timer.Interval = 1
     $timer.Start()
@@ -300,14 +308,10 @@ function main() {
 try {
   $State = (Get-Random)
   $Authentication = Authenticate-OneDrive -ClientId $ClientId -AppKey $AppKey -RedirectURI $RedirectURI -ResourceId $ResourceId
-} catch {
+}
+catch {
   [void][System.Windows.Forms.MessageBox]::Show($error, "Error", "OK", "Information")
   $error
 }
-
-# スクリーンショットを取る準備
-[Reflection.Assembly]::LoadWithPartialName("System.Drawing")
-[void] [System.Reflection.Assembly]::LoadWithPartialName("System.Drawing")
-[void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
 
 main
