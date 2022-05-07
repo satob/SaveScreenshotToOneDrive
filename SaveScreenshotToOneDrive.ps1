@@ -17,10 +17,11 @@ function Invoke-WebRequestThruProxy {
   PARAM(
     [Parameter(Mandatory = $True)]  $Method,
     [Parameter(Mandatory = $True)]  [uri]$Uri,
-    [Parameter(Mandatory = $True)]  [string]$ContentType,
+    [Parameter(Mandatory = $False)] $ContentType = "application/x-www-form-urlencoded",
     [Parameter(Mandatory = $False)] $Body = $null,
     [Parameter(Mandatory = $False)] $InFile = $null,
-    [Parameter(Mandatory = $False)] $Header = $null
+    [Parameter(Mandatory = $False)] $Header = $null,
+    [Parameter(Mandatory = $False)] $TimeoutSec = 0
   )
 
   $WithProxy = $false
@@ -33,18 +34,18 @@ function Invoke-WebRequestThruProxy {
   try {
     if ($null -ne $Body) {
       if ($WithProxy) {
-        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials -TimeoutSec $TimeoutSec
       }
       else {
-        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -Body $Body -Header $Header -UseBasicParsing -TimeoutSec $TimeoutSec
       }
     }
     elseif ($null -ne $InFile) {
       if ($WithProxy) {
-        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials -TimeoutSec $TimeoutSec
       }
       else {
-        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing
+        $Response = Invoke-WebRequest -Method $Method -Uri $Uri -ContentType $ContentType -InFile $InFile -Header $Header -UseBasicParsing -TimeoutSec $TimeoutSec
       }
     }
     return ($Response.Content | ConvertFrom-Json)
@@ -106,7 +107,7 @@ function Authenticate-OneDrive {
   if ($Authentication.code) {
     $Code = $Authentication.code
     $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&code=${Code}&grant_type=authorization_code&scope=${Scope}"
-    return Invoke-WebRequestThruProxy -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body
+    return Invoke-WebRequestThruProxy -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -Body $Body
   }
   else {
     Write-Error ("Cannot get authentication code. Error: " + $ReturnURI) -ErrorAction Stop
@@ -123,7 +124,7 @@ function Refresh-Token {
     [string]$RefreshToken = ""
   )
   $Body = "client_id=${ClientId}&redirect_URI=${RedirectURI}&refresh_token=${RefreshToken}&grant_type=refresh_token"
-  return Invoke-WebRequestThruProxy -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $Body
+  return Invoke-WebRequestThruProxy -Method POST -Uri "https://login.microsoftonline.com/organizations/oauth2/v2.0/token" -Body $Body
 }
 
 
@@ -290,13 +291,34 @@ function main() {
 }
 
 
+function Test-NetConnectionToMS365 {
+  $Uri = [uri]"https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration"
+
+  $WithProxy = $false
+  $BaseUri = $Uri.Scheme + "://" + $Uri.Host
+  $ProxyUri = [System.Net.WebRequest]::GetSystemWebProxy().GetProxy($BaseUri)
+  if (([uri]$BaseUri).AbsoluteUri -ne $ProxyUri.AbsoluteUri) {
+    $WithProxy = $true
+  }
+
+  try {
+    if ($WithProxy) {
+      $Response = Invoke-WebRequest -Method GET -Uri $Uri -UseBasicParsing -Proxy $ProxyUri.AbsoluteUri -ProxyUseDefaultCredentials -TimeoutSec 3
+    }
+    else {
+      $Response = Invoke-WebRequest -Method GET -Uri $Uri -UseBasicParsing -TimeoutSec 3
+    }
+    ($Response.Content | ConvertFrom-Json)
+    return $true
+  } catch {
+    return $false
+  }
+}
+
 # ネットワークが有効になるまで待つ
-$PingHosts = @('login.live.com', 'login.microsoftonline.com');
 while ($true) {
   $PingHosts | ForEach-Object {
-    $AuthFQDN = $_;
-    $AuthIP = (Resolve-DnsName $AuthFQDN | Where-Object { $_.QueryType -eq "A" } | Select-Object -First 1).IPAddress;
-    if (Test-NetConnection -ComputerName $AuthIP -Port 443 -InformationLevel Quiet -ErrorAction SilentlyContinue -WarningAction SilentlyContinue) {
+    if (Test-NetConnectionToMS365) {
       break;
     }
     Start-Sleep -Seconds 10
