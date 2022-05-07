@@ -156,41 +156,41 @@ function timer_function($notify) {
     $Authentication = $Authentication_Old
   }
 
-  $Year = "{0:0000}" -F (Get-Date).Year
-  $Month = "{0:00}" -F (Get-Date).Month
-  $Day = "{0:00}" -F (Get-Date).Day
-  $FileName = (Get-Date).ToString('HHmm') + ".jpg"
-  $TmpFilePath = Join-Path $env:TEMP $FileName
-  $JpegEncoder = ([System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.FormatID -eq [System.Drawing.Imaging.ImageFormat]::Jpeg.Guid })
-  $JpegEncoderParameters = New-Object System.Drawing.Imaging.EncoderParameters(1)
-  $JpegEncoderParameters.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, 10)
-
-  $width = 0;
-  $height = 0;
-  $workingAreaX = 0;
-  $workingAreaY = 0;
-
-  $screen = [System.Windows.Forms.Screen]::AllScreens;
-
-  foreach ($item in $screen) {
-    if ($workingAreaX -gt $item.WorkingArea.X) {
-      $workingAreaX = $item.WorkingArea.X;
-    }
-    if ($workingAreaY -gt $item.WorkingArea.Y) {
-      $workingAreaY = $item.WorkingArea.Y;
-    }
-    $width = $width + $item.Bounds.Width;
-
-    if ($item.Bounds.Height -gt $height) {
-      $height = $item.Bounds.Height;
-    }
-  }
-
-  $bounds = [Drawing.Rectangle]::FromLTRB($workingAreaX, $workingAreaY, $width, $height); 
-  $bmp = New-Object Drawing.Bitmap $width, $height;
-  $graphics = [Drawing.Graphics]::FromImage($bmp);
-
   try {
+    $Year = "{0:0000}" -F (Get-Date).Year
+    $Month = "{0:00}" -F (Get-Date).Month
+    $Day = "{0:00}" -F (Get-Date).Day
+    $FileName = (Get-Date).ToString('HHmm') + ".jpg"
+    $TmpFilePath = Join-Path $env:TEMP $FileName
+    $JpegEncoder = ([System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.FormatID -eq [System.Drawing.Imaging.ImageFormat]::Jpeg.Guid })
+    $JpegEncoderParameters = New-Object System.Drawing.Imaging.EncoderParameters(1)
+    $JpegEncoderParameters.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, 10)
+
+    $width = 0;
+    $height = 0;
+    $workingAreaX = 0;
+    $workingAreaY = 0;
+
+    $screen = [System.Windows.Forms.Screen]::AllScreens;
+
+    foreach ($item in $screen) {
+      if ($workingAreaX -gt $item.WorkingArea.X) {
+        $workingAreaX = $item.WorkingArea.X;
+      }
+      if ($workingAreaY -gt $item.WorkingArea.Y) {
+        $workingAreaY = $item.WorkingArea.Y;
+      }
+      $width = $width + $item.Bounds.Width;
+
+      if ($item.Bounds.Height -gt $height) {
+        $height = $item.Bounds.Height;
+      }
+    }
+
+    $bounds = [Drawing.Rectangle]::FromLTRB($workingAreaX, $workingAreaY, $width, $height); 
+    $bmp = New-Object Drawing.Bitmap $width, $height;
+    $graphics = [Drawing.Graphics]::FromImage($bmp);
+
     # It fails when the screen is locked
     $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.size);
 
@@ -226,9 +226,8 @@ function main() {
 
     $application_context = New-Object System.Windows.Forms.ApplicationContext
     $timer = New-Object Windows.Forms.Timer
-    $path = Get-Process -id $pid | Select-Object -ExpandProperty Path # icon用
-    $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
 
+    # タスクトレイアイコンの画像を作成
     $FormIconGZipBase64 = 'H4sIAAAAAAAEAMVUP2gTURz+xKHFf83kFEgHEUGH4pRBSBAEQcQigYzJ5CbJ5OBywcE4BK4iuL4MVW+7Tma8GwKigxdwUVHubRkyXDar1X5+l7Q0jWkiFPRdvrvX+97vd9/ve79X4ISu1VXovgxvGTgP4JKgVyhi/H7+aIx+aDTGj/TSJAxDhF9CDN+91NtTwmnhjHBWOCesTHylKjhCWwgFK+wimyXyeaJUIup1otUiPI/odglruSgcWWaRZx4lllBnHS224NFDl11Y2kXhYDYL5vNgqQTW62CrBXoe2O2CVqtS44rKUFUGRxna7bRwJRC3K/2UfqEk1IWW4AldwQoLwp+Q2etkPqT0U/op/ZR+Sj9H+lelvyj9Vel3pL8t/aH0W+nflX5KvyD/KP8o/yj/KP8o/+64ESomRs1P4ASE+5YwHwj/KxH05W+xgVzZRaFmUGn6cEwA04kQRDHifgJqn+nmQFMA/QoYOGBkwDgAkxgN1eaWczC1AvxmBYFxEHUM4ihA0o9B9QpzLlhQTMUHHcWZSHnExYnYItxcGaZQg19pInAMItNBHERI4j5SATlKH6WP0kfpo/RR+pggFZBzyyiYGip+UzUamKiDII4QJ31cvkdce0DcfkxUnmuPXhGPOsSzN8SLj1Kn+l3Vb1S/r/oD1R+p/lj1J6q/IYtcqj6qPqo+qj5piaUjkQaFoyx/avKnKX+M/OnIn0j+9OUP7qrJbl0AbtwECveB/FPg6mvgymfgopKvCw+FTSLznihuEzX1TVvoCZlMRj20irW1NfVREevr6+qlqs5KXf3kYGNjQz3VxtbW1ug89no99ZbFcDhUf6Udvi38En4KO8IP4TuGO8Sm4hrpQdYupT813PiRXumr9PYvxmDmmM8erFjAT/xtR2NqwQR7+DnF270Ee9Np3u4Hpnc7i7eDP6YH/ETQxHySn9Bt/wc/X9+i+hb6M+XveHL0/szgD+3vAX/c/jlywaH2xQxqMJcfpMTsQ7DHHnVK9pNPLzi8eh7594MTQ/9JchZYShECJ4+D/TxD5Rw2Tn4TPjFcqtGudPSpYP+bvwGD5A+AvggAAA=='
     $FormIconGZip = [System.Convert]::FromBase64String($FormIconGZipBase64)
     $FormIconGZipMemoryStream = New-Object System.IO.MemoryStream(, $FormIconGZip)
@@ -239,7 +238,7 @@ function main() {
     $FormIconGZipMemoryStream.Close()
     $icon = [System.Drawing.Icon]::FromHandle(([System.Drawing.Bitmap]::new($FormIconMemoryStream).GetHIcon()))
 
-    # タスクトレイアイコン
+    # タスクトレイアイコンを設定
     $notify_icon = New-Object System.Windows.Forms.NotifyIcon
     $notify_icon.Icon = $icon
     $notify_icon.Visible = $true
@@ -292,17 +291,17 @@ function main() {
 
 
 # ネットワークが有効になるまで待つ
-#$PingHosts = @('login.live.com', 'login.microsoftonline.com');
-#while ($true) {
-#  $PingHosts | ForEach-Object {
-#    $AuthFQDN = $_;
-#    $AuthIP = (Resolve-DnsName $AuthFQDN | Where-Object { $_.QueryType -eq "A" } | Select-Object -First 1).IPAddress;
-#    if ((Test-NetConnection -ComputerName $AuthIP -Port 443).TcpTestSucceeded) {
-#      break;
-#    }
-#    Start-Sleep -Seconds 10
-#  }
-#}
+$PingHosts = @('login.live.com', 'login.microsoftonline.com');
+while ($true) {
+  $PingHosts | ForEach-Object {
+    $AuthFQDN = $_;
+    $AuthIP = (Resolve-DnsName $AuthFQDN | Where-Object { $_.QueryType -eq "A" } | Select-Object -First 1).IPAddress;
+    if (Test-NetConnection -ComputerName $AuthIP -Port 443 -InformationLevel Quiet -ErrorAction SilentlyContinue -WarningAction SilentlyContinue) {
+      break;
+    }
+    Start-Sleep -Seconds 10
+  }
+}
 
 # まず認証する
 try {
