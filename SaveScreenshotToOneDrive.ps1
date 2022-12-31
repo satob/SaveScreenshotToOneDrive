@@ -13,6 +13,9 @@ $AppKey = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 [void] [Reflection.Assembly]::LoadWithPartialName("System.Drawing")
 [void] [Reflection.Assembly]::LoadWithPartialName("System.Web")
 
+# Tasktray Icon
+$notify_icon = $null
+
 function Invoke-WebRequestThruProxy {
   PARAM(
     [Parameter(Mandatory = $True)]  $Method,
@@ -21,7 +24,7 @@ function Invoke-WebRequestThruProxy {
     [Parameter(Mandatory = $False)] $Body = $null,
     [Parameter(Mandatory = $False)] $InFile = $null,
     [Parameter(Mandatory = $False)] $Header = $null,
-    [Parameter(Mandatory = $False)] $TimeoutSec = 0
+    [Parameter(Mandatory = $False)] $TimeoutSec = 10
   )
 
   $WithProxy = $false
@@ -55,7 +58,11 @@ function Invoke-WebRequestThruProxy {
     $Line = $_.InvocationInfo.PositionMessage
     $Message = $e.Message
     $Parameters = ($PSBoundParameters.Keys | ForEach-Object { $_ + "=" + $PSBoundParameters.Item($_) }) -join "`n"
-    [void][System.Windows.Forms.MessageBox]::Show("At $Line" + "`n" + $Message + "`n" + $Parameters, "Error", "OK", "Information")
+    # [void][System.Windows.Forms.MessageBox]::Show("At $Line" + "`n" + $Message + "`n" + $Parameters, "Error", "OK", "Information")
+    $notify_icon.BalloonTipIcon  = [Windows.Forms.ToolTipIcon]::Warning
+    # $notify_icon.BalloonTipTitle = 'Error'
+    $notify_icon.BalloonTipText = "At $Line" + "`n" + $Message + "`n" + $Parameters
+    $notify_icon.ShowBalloonTip(60000)
     $error.clear()
   }
 }
@@ -216,14 +223,31 @@ function timer_function($notify) {
   Write-Host "timer_function "  $datetime
 }
 
+
+
 function main() {
   $mutex = New-Object System.Threading.Mutex($false, $MUTEX_NAME)
   # 多重起動チェック
   if ($mutex.WaitOne(0, $false)) {
     # タスクバー非表示
-    # $windowcode = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);'
-    # $asyncwindow = Add-Type -MemberDefinition $windowcode -name Win32ShowWindowAsync -namespace Win32Functions -PassThru
-    # $null = $asyncwindow::ShowWindowAsync((Get-Process -PID $pid).MainWindowHandle, 0)
+    # Write-Host "タスクバー非表示 開始"
+    $windowcode = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);'
+    $asyncwindow = Add-Type -MemberDefinition $windowcode -name Win32ShowWindowAsync -namespace Win32Functions -PassThru
+    $hwnd = (Get-Process -PID $pid).MainWindowHandle
+    if ($hwnd -ne [System.IntPtr]::Zero) {
+      # コンソールウィンドウのウィンドウハンドルが取得できた場合
+      # （≒ターミナルにWindows コンソールホストを使っている場合）
+      $hidden = $asyncwindow::ShowWindowAsync($hwnd, 0)
+      # Write-Host $hidden
+    } else {
+      # コンソールウィンドウのウィンドウハンドルが取得できなかった場合
+      # （≒ターミナルにWindows ターミナルを使っている場合）
+      Add-Type -Name ConsoleAPI -Namespace Win32Util -MemberDefinition '[DllImport("Kernel32.dll")] public static extern IntPtr GetConsoleWindow();'
+      $hwnd = [Win32Util.ConsoleAPI]::GetConsoleWindow()
+      $hidden = $asyncwindow::ShowWindowAsync($hwnd, 0)
+      # Write-Host $hidden
+    }
+    # Write-Host "タスクバー非表示 完了"
 
     $application_context = New-Object System.Windows.Forms.ApplicationContext
     $timer = New-Object Windows.Forms.Timer
