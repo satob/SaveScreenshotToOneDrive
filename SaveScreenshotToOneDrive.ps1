@@ -224,30 +224,46 @@ function timer_function($notify) {
 }
 
 
+function Hide-ConsoleWindow() {
+  $ShowWindowAsyncCode = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);'
+  $ShowWindowAsync = Add-Type -MemberDefinition $ShowWindowAsyncCode -name Win32ShowWindowAsync -namespace Win32Functions -PassThru
+
+  $hwnd = (Get-Process -PID $pid).MainWindowHandle
+  if ($hwnd -ne [System.IntPtr]::Zero) {
+    # When you got HWND of the console window:
+    # (It would appear that Windows Console Host is the default terminal application)
+    $ShowWindowAsync::ShowWindowAsync($hwnd, 0)
+  } else {
+    # When you failed to get HWND of the console window:
+    # (It would appear that Windows Terminal is the default terminal application)
+
+    # Mark the current console window with a unique string.
+    $UniqueWindowTitle = New-Guid
+    $Host.UI.RawUI.WindowTitle = $UniqueWindowTitle
+    $StringBuilder = New-Object System.Text.StringBuilder 1024
+
+    # Search the process that has the window title generated above.
+    $TerminalProcess = (Get-Process | Where-Object { $_.MainWindowTitle -eq $UniqueWindowTitle })
+    # Get the window handle of the terminal process.
+    # Note that GetConsoleWindow() in Win32 API returns the HWND of
+    # powershell.exe itself rather than the terminal process.
+    # When you call ShowWindowAsync(HWND, 0) with the HWND from GetConsoleWindow(),
+    # the Windows Terminal window will be just minimized rather than hidden.
+    $hwnd = $TerminalProcess.MainWindowHandle
+    if ($hwnd -ne [System.IntPtr]::Zero) {
+      $ShowWindowAsync::ShowWindowAsync($hwnd, 0)
+    } else {
+      Write-Host "Failed to hide the console window."
+    }
+  }
+}
+
 
 function main() {
   $mutex = New-Object System.Threading.Mutex($false, $MUTEX_NAME)
   # 多重起動チェック
   if ($mutex.WaitOne(0, $false)) {
-    # タスクバー非表示
-    # Write-Host "タスクバー非表示 開始"
-    $windowcode = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);'
-    $asyncwindow = Add-Type -MemberDefinition $windowcode -name Win32ShowWindowAsync -namespace Win32Functions -PassThru
-    $hwnd = (Get-Process -PID $pid).MainWindowHandle
-    if ($hwnd -ne [System.IntPtr]::Zero) {
-      # コンソールウィンドウのウィンドウハンドルが取得できた場合
-      # （≒ターミナルにWindows コンソールホストを使っている場合）
-      $hidden = $asyncwindow::ShowWindowAsync($hwnd, 0)
-      # Write-Host $hidden
-    } else {
-      # コンソールウィンドウのウィンドウハンドルが取得できなかった場合
-      # （≒ターミナルにWindows ターミナルを使っている場合）
-      Add-Type -Name ConsoleAPI -Namespace Win32Util -MemberDefinition '[DllImport("Kernel32.dll")] public static extern IntPtr GetConsoleWindow();'
-      $hwnd = [Win32Util.ConsoleAPI]::GetConsoleWindow()
-      $hidden = $asyncwindow::ShowWindowAsync($hwnd, 0)
-      # Write-Host $hidden
-    }
-    # Write-Host "タスクバー非表示 完了"
+    Hide-ConsoleWindow
 
     $application_context = New-Object System.Windows.Forms.ApplicationContext
     $timer = New-Object Windows.Forms.Timer
